@@ -160,7 +160,7 @@ class FIFOGif(object):
     def parseBlock(self, fd):
         x = fd.read(1)
         self._blkTypes[self._blkPointer] = x
-        loggerz.info(f"New block of type : {str(self._blkTypes[self._blkPointer])}")
+        loggerz.debug(f"New block of type : {str(self._blkTypes[self._blkPointer])}")
         self._blkPointer = (self._blkPointer + 1) % len(self._blkTypes)
         if x == b",":
             self.parseImageDescriptor(fd)
@@ -193,8 +193,6 @@ class FIFOGif(object):
                 blks.append(self._extBlocks[(self._extPointer - nbExt) % len(self._extBlocks)])
         blks = blks[::-1]
         L = L[::-1]
-        print(len(blks))
-        print(self.gifLength)
 
         # Building the Gif
         fullGif = b""
@@ -211,8 +209,10 @@ class FIFOGif(object):
         return fullGif
 
     def save(self, path):
+        _p = os.path.join(path, datetime.now().strftime("%d%m%Y_%H%M%S") + ".gif")
+        loggerz.info("Saving gif to " + _p)
         data = self.encode()
-        with open(os.path.join(path, datetime.now().strftime("%d%m%Y_%H%M%S") + ".gif"), "wb+") as f:
+        with open(_p, "wb+") as f:
             f.write(data)
         self._toSave = False
 
@@ -229,14 +229,16 @@ def cleanup():
 
 def init():
     os.mkfifo(fifo_path, mode)
-    p = subprocess.Popen(ffmpeg_command, shell=True)
+    p = subprocess.Popen(ffmpeg_command, stderr=subprocess.DEVNULL, shell=True)
     return p
 
 if __name__ == "__main__":
     save_path = "./"
     G = FIFOGif()
+    loggerz.info("Initializing")
     init()
     time.sleep(10)
+    loggerz.info("ffmpeg started successfully")
     f = open(fifo_path, "rb", buffering=512)
     G.parseAllHead(f)
     signal.signal(signal.SIGUSR1, G.toSave)
