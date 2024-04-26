@@ -7,16 +7,8 @@ import time
 import shlex
 import logging
 import signal
+import argparse
 from datetime import datetime
-
-fifo_path = "./gifpipe"
-screen_size = "1920x1080"
-fps = 2
-duration = 15
-
-gifLength = fps*duration
-mode = 0o600
-ffmpeg_command = f"ffmpeg -video_size {screen_size} -framerate {fps} -f x11grab -i :0.0 -lavfi palettegen=stats_mode=single[pal],[0:v][pal]paletteuse=new=1 -f gif pipe:1 > {fifo_path}"
 
 
 loggerz = logging.getLogger(__name__)
@@ -31,9 +23,9 @@ loggerz.setLevel(logging.INFO)
 class FIFOGif(object):
     def __init__(self, size=2*30):
         self.gifLength = size
-        self._blkTypes = [None for _ in range(self.gifLength * 2)] # faire tourner la liste
-        self._extBlocks = [None for _ in range(self.gifLength * 2)] # faire tourner la liste
-        self._imageDescriptors = [None for _ in range(self.gifLength * 2)] # faire tourner la liste
+        self._blkTypes = [None for _ in range(self.gifLength * 2)]
+        self._extBlocks = [None for _ in range(self.gifLength * 2)]
+        self._imageDescriptors = [None for _ in range(self.gifLength * 2)]
         self._blkPointer = 0
         self._extPointer = 0
         self._imagePointer = 0
@@ -233,11 +225,31 @@ def init():
     return p
 
 if __name__ == "__main__":
-    save_path = "./"
-    G = FIFOGif()
+    # Argument parsing
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--fps", type=int, default=2, help="Number of frames per seconds in the GIF file (default: 2)")
+    parser.add_argument("--duration", type=int, default=15, help="Duration of the GIF file (in seconds) (default: 15)")
+    parser.add_argument("--screen-size", type=str, default="1920x1080", help="Screen size to capture (default: 1920x1080)")
+    parser.add_argument("--save-path", type=str, default=".", help="Where to save GIF files (default: .)")
+    parser.add_argument("--pipe-path", type=str, default="/tmp/.gifx_pipe", help="Where to save GIF files (default: /tmp/.gifx_pipe)")
+    args = parser.parse_args()
+
+    save_path = args.save_path
+    fifo_path = args.pipe_path
+    screen_size = args.screen_size
+    fps = args.fps
+    duration = args.duration
+
+    gifLength = fps*duration
+    mode = 0o600
+    ffmpeg_command = f"ffmpeg -video_size {screen_size} -framerate {fps} -f x11grab -i :0.0 -lavfi palettegen=stats_mode=single[pal],[0:v][pal]paletteuse=new=1 -f gif pipe:1 > {fifo_path}"
+
+    # Leeet's gooo
     loggerz.info("Initializing")
-    init()
-    time.sleep(10)
+    G = FIFOGif()
+    ffmpeg_process = init()
+    time.sleep(5)
+    # FIXME check ffmpeg_process status
     loggerz.info("ffmpeg started successfully")
     f = open(fifo_path, "rb", buffering=512)
     G.parseAllHead(f)
